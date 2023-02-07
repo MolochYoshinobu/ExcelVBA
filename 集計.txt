@@ -1,0 +1,145 @@
+Option Explicit
+
+Type Q_st
+    Q_Contents As String
+    Ans_Count As Byte
+    Ans_St(20) As String
+    Ans_Sum(20) As Long
+    
+
+End Type
+Dim TestSheet(10) As Worksheet
+Dim SectionList(50) As String
+Dim AnalysisList As Variant
+
+Sub All_Analysis()
+
+
+Dim i As Long
+Dim j As Long
+Dim x As Long
+Dim y As Long
+Dim AnsList As Variant
+Dim Ans_posx As Long
+Dim Ans_posy As Long
+Dim Q_TotalCount As Byte
+Dim Ans_TotalCount As Long
+Dim DataList As Variant
+
+
+'---ここ変えた----------------------
+
+Dim CheckData As Variant
+Dim Q_para(30) As Q_st
+Dim Pastposy As Long
+Dim Pastposx As Long
+Dim PastOffset As Long
+Dim Listposy As Long
+Dim Listposx As Long
+Dim Chartposy As Long
+Dim Chartposx As Long
+Pastposy = 1
+Pastposx = 1
+PastOffset = 15
+'-------------------------
+
+
+y = 1
+x = 1
+i = 1
+Ans_posy = 2
+Ans_posx = 0
+Erase SectionList
+Set TestSheet(0) = ThisWorkbook.Sheets("Sheet1")
+With TestSheet(0)
+    Do
+        If .Cells(y, x).Value = "" Then Exit Do
+        Q_TotalCount = x
+        Q_para(x).Ans_Count = .Cells(y, x).Value
+        Q_para(x).Q_Contents = .Cells(y + 1, x).Value
+        Do
+            If .Cells(y + 2, x).Value = "" Then Exit Do
+            Q_para(x).Ans_St(i) = .Cells(y + 2, x).Value
+            Q_para(x).Ans_Sum(i) = 0
+            y = y + 1
+            i = i + 1
+            
+        Loop
+        y = 1
+        i = 1
+        x = x + 1
+    Loop
+End With
+Set TestSheet(1) = ThisWorkbook.Sheets("Sheet2")
+AnsList = TestSheet(1).Range("A1").CurrentRegion
+Ans_TotalCount = UBound(AnsList, 1) - 2
+For i = 1 To Ans_TotalCount
+    Call Section_Input(AnsList(i + Ans_posy, 2 + Ans_posx))
+    For j = 1 To Q_TotalCount
+    '---ここ変えた----------------------
+
+        CheckData = AnsList(i + Ans_posy, j + Ans_posx + 2)
+        If CheckData = Empty Then
+             Q_para(j).Ans_Sum(0) = Q_para(j).Ans_Sum(0) + 1
+        Else
+            Q_para(j).Ans_Sum(CheckData) = Q_para(j).Ans_Sum(CheckData) + 1
+        End If
+    Next
+Next
+'
+'Debug.Print Q_para(1).Ans_Sum(0)
+'Debug.Print Q_para(1).Ans_Sum(1)
+'Debug.Print Q_para(1).Ans_Sum(2)
+'Debug.Print Q_para(1).Ans_Sum(3)
+'Debug.Print Q_para(10).Ans_Sum(0)
+'Debug.Print Q_para(10).Ans_Sum(1)
+'Debug.Print Q_para(10).Ans_Sum(2)
+
+Set TestSheet(2) = ThisWorkbook.Sheets("Sheet3")
+TestSheet(2).Activate
+With TestSheet(2)
+For i = 1 To Q_TotalCount
+    ReDim DataList(1 To Q_para(i).Ans_Count + 2, 1 To 2)
+    DataList(1, 2) = Q_para(i).Q_Contents
+    For j = 1 To Q_para(i).Ans_Count
+        DataList(j + 1, 1) = Q_para(i).Ans_St(j)
+        DataList(j + 1, 2) = Q_para(i).Ans_Sum(j)
+        
+    Next
+    DataList(j + 1, 1) = "未回答"
+    DataList(j + 1, 2) = Q_para(i).Ans_Sum(0)
+    Listposy = Pastposy + UBound(DataList, 1) - 1
+    Listposx = Pastposx + UBound(DataList, 2) - 1
+    .Range(.Cells(Pastposy, Pastposx), .Cells(Listposy, Listposx)) = DataList
+    ActiveSheet.Shapes.AddChart2(251, xlPie).Select
+    ActiveChart.SetSourceData Source:=.Range(.Cells(Pastposy, Pastposx), .Cells(Listposy, Listposx))
+     ActiveChart.ChartObjects.Top = .Cells(Pastposy, Pastposx + 5).Top
+     ActiveChart.ChartObjects.Left = .Cells(Pastposy, Pastposx + 5).Left
+    Pastposy = Pastposy + PastOffset
+
+Next
+
+End With
+End Sub
+
+Sub Section_Input(ByVal Section As String)
+    Dim i As Long
+    Dim flg As Boolean
+    flg = False
+    i = 1
+    If SectionList(1) = Empty Then
+        SectionList(0) = Str(i)
+        SectionList(1) = Section
+        flg = True
+    Else
+        For i = 1 To Val(SectionList(0))
+            If SectionList(i) = Section Then flg = True
+            i = i + 1
+        Next
+    End If
+    If flg = False Then
+        SectionList(0) = Str(Val(SectionList(0)) + 1)
+        SectionList(0) = Section
+    End If
+    
+End Sub
