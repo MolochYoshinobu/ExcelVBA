@@ -220,11 +220,13 @@ For i = 1 To Ans_TotalCount
         End If
     Next
 Next
-
-Set TestSheet(2) = ThisWorkbook.Sheets("Sheet3")
-TestSheet(2).Activate
-TestSheet(2).Cells.Clear
-Call ChartClear
+TestSheet(1).Activate
+Sheets.Add After:=ActiveSheet
+Set TestSheet(2) = ActiveSheet
+'Set TestSheet(2) = ThisWorkbook.Sheets("Sheet3")
+'TestSheet(2).Activate
+'TestSheet(2).Cells.Clear
+'Call ChartClear
 With TestSheet(2)
 
     If AnalyzeON = False Then PastOffset = 15
