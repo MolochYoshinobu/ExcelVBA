@@ -439,7 +439,7 @@ Sub DataCopy()
     DataCopyFinish = False
     cnt = 0
     Set Shell = CreateObject("Shell.Application")
-    Set myPath = Shell.BrowseForFolder(&O0, "フォルダを選んでください", &H1 + &H10, "C:\Users\ko\Desktop\集計フォルダ")
+    Set myPath = Shell.BrowseForFolder(&O0, "フォルダを選んでください", &H1 + &H10, "C:\Users")
     If myPath Is Nothing Then
        MsgBox ("フォルダが選択されていません")
        Exit Sub
@@ -476,8 +476,7 @@ Sub DataCopy()
         .Range("B2").Value = "所属"
     End With
    
-    'FileList(0) = "C:\Users\ko\Desktop\集計フォルダ\1技1データ.xlsx"
-    'FileList(1) = "C:\Users\ko\Desktop\集計フォルダ\1技2データ.xlsx"
+   
     i = 0
     Do
         If FileList(i) = Empty Then Exit Do
