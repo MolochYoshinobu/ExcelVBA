@@ -11,293 +11,172 @@ End Type
 Dim TestSheet(10) As Worksheet
 Dim SectionList(50) As String
 Dim AnalysisList As Variant
+Public DataCopyFinish As Boolean
 
-Sub All_Analysis()
-
-
-Dim i As Long
-Dim j As Long
-Dim x As Long
-Dim y As Long
-
-Dim Ans_posx As Long
-Dim Ans_posy As Long
-Dim Ans_TotalCount As Long
-
-
-Dim Q_TotalCount As Byte
-Dim Q_para(30) As Q_st
-
-Dim AnsList As Variant
-Dim DataList As Variant
-
-Dim CheckData As Variant
-
-Dim Pastposy As Long
-Dim Pastposx As Long
-Dim PastOffset As Long
-
-Dim Listposy As Long
-Dim Listposx As Long
-
-Dim Chartposy As Long
-Dim Chartposx As Long
-
-Pastposy = 1
-Pastposx = 1
-PastOffset = 15
-y = 1
-x = 1
-i = 1
-Ans_posy = 2
-Ans_posx = 0
-Erase SectionList
-Set TestSheet(0) = ThisWorkbook.Sheets("Sheet1")
-With TestSheet(0)
-    Do
-        If .Cells(y, x).Value = "" Then Exit Do
-        Q_TotalCount = x
-        Q_para(x).Ans_Count = .Cells(y, x).Value
-        Q_para(x).Q_Contents = .Cells(y + 1, x).Value
-        Do
-            If .Cells(y + 2, x).Value = "" Then Exit Do
-            Q_para(x).Ans_St(i) = .Cells(y + 2, x).Value
-            Q_para(x).Ans_Sum(i) = 0
-            y = y + 1
-            i = i + 1
-            
-        Loop
-        y = 1
-        i = 1
-        x = x + 1
-    Loop
-End With
-Set TestSheet(1) = ThisWorkbook.Sheets("Sheet2")
-AnsList = TestSheet(1).Range("A1").CurrentRegion
-Ans_TotalCount = UBound(AnsList, 1) - 2
-For i = 1 To Ans_TotalCount
-    Call Section_Input(AnsList(i + Ans_posy, 2 + Ans_posx))
-    For j = 1 To Q_TotalCount
-        CheckData = AnsList(i + Ans_posy, j + Ans_posx + 2)
-        If CheckData = Empty Then
-             Q_para(j).Ans_Sum(0) = Q_para(j).Ans_Sum(0) + 1
-        Else
-            Q_para(j).Ans_Sum(CheckData) = Q_para(j).Ans_Sum(CheckData) + 1
-        End If
-    Next
-Next
-'
-'Debug.Print Q_para(1).Ans_Sum(0)
-'Debug.Print Q_para(1).Ans_Sum(1)
-'Debug.Print Q_para(1).Ans_Sum(2)
-'Debug.Print Q_para(1).Ans_Sum(3)
-'Debug.Print Q_para(10).Ans_Sum(0)
-'Debug.Print Q_para(10).Ans_Sum(1)
-'Debug.Print Q_para(10).Ans_Sum(2)
-
-Set TestSheet(2) = ThisWorkbook.Sheets("Sheet3")
-TestSheet(2).Activate
-TestSheet(2).Cells.Clear
-Call ChartClear
-With TestSheet(2)
-    For i = 1 To Q_TotalCount
-        ReDim DataList(1 To Q_para(i).Ans_Count + 2, 1 To 2)
-        DataList(1, 2) = Q_para(i).Q_Contents
-        For j = 1 To Q_para(i).Ans_Count
-            DataList(j + 1, 1) = Q_para(i).Ans_St(j)
-            DataList(j + 1, 2) = Q_para(i).Ans_Sum(j)
-            
-        Next
-        DataList(j + 1, 1) = "未回答"
-        DataList(j + 1, 2) = Q_para(i).Ans_Sum(0)
-        Listposy = Pastposy + UBound(DataList, 1) - 1
-        Listposx = Pastposx + UBound(DataList, 2) - 1
-        .Range(.Cells(Pastposy, Pastposx), .Cells(Listposy, Listposx)) = DataList
-        Call NormalChart_Add(i, Pastposy, Pastposx, Listposy - Pastposy + 1, Pastposy, 5, 14, 8)
-        Pastposy = Pastposy + PastOffset
-    
-    Next
-    .Cells(1, 1).Select
-End With
-For i = 0 To 10
-    Set TestSheet(i) = Nothing
-Next
-
-
-End Sub
 Sub Select_Analysis()
-Dim MainNo As Byte
-Dim SubNo As Byte
-Dim AnalyzeON As Boolean
-
-Dim i As Long
-Dim j As Long
-Dim k As Long
-Dim x As Long
-Dim y As Long
-
-Dim Ans_posx As Long
-Dim Ans_posy As Long
-Dim Ans_TotalCount As Long
-Dim Ana_posy As Long
-Dim Ana_posx As Long
-
-Dim Q_TotalCount As Byte
-Dim Q_para(30) As Q_st
-
-Dim AnsList As Variant
-Dim DataList As Variant
-
-Dim CheckData As Variant
-
-Dim Pastposy As Long
-Dim Pastposx As Long
-Dim PastOffset As Long
-
-Dim Listposy As Long
-Dim Listposx As Long
-
-Dim Chartposy As Long
-Dim Chartposx As Long
-Dim ChartNo As Long
-
-Pastposy = 1
-Pastposx = 1
-PastOffset = 30
-y = 1
-x = 1
-i = 1
-Ans_posy = 2
-Ans_posx = 0
-ChartNo = 1
-'
-'MainNo = 2
-'SubNo = 5
-'AnalyzeON = True
-
-Application.ScreenUpdating = False
-
-
-Erase SectionList
-Set TestSheet(0) = ThisWorkbook.Sheets("Sheet1")
-With TestSheet(0)
-    If .Cells(16, 5).Value = 0 Then
-        AnalyzeON = False
-    Else
-        AnalyzeON = True
-        SubNo = .Cells(16, 5).Value
-    End If
-    Do
-        If .Cells(y, x).Value = "" Then Exit Do
-        Q_TotalCount = x
-        Q_para(x).Ans_Count = .Cells(y, x).Value
-        Q_para(x).Q_Contents = .Cells(y + 1, x).Value
-        Do
-            If .Cells(y + 2, x).Value = "" Then Exit Do
-            Q_para(x).Ans_St(i) = .Cells(y + 2, x).Value
-            Q_para(x).Ans_Sum(i) = 0
-            y = y + 1
-            i = i + 1
-        Loop
-        y = 1
-        i = 1
-        x = x + 1
-    Loop
-End With
-
-
-Set TestSheet(1) = ThisWorkbook.Sheets("Sheet2")
-AnsList = TestSheet(1).Range("A1").CurrentRegion
-Ans_TotalCount = UBound(AnsList, 1) - 2
-For i = 1 To Ans_TotalCount
-    Call Section_Input(AnsList(i + Ans_posy, 2 + Ans_posx))
-    For j = 1 To Q_TotalCount
-        CheckData = AnsList(i + Ans_posy, j + Ans_posx + 2)
-        If CheckData = Empty Then
-             Q_para(j).Ans_Sum(0) = Q_para(j).Ans_Sum(0) + 1
+    Dim MainNo As Byte
+    Dim SubNo As Byte
+    Dim AnalyzeON As Boolean
+    
+    Dim i As Long
+    Dim j As Long
+    Dim k As Long
+    Dim x As Long
+    Dim y As Long
+    
+    Dim Ans_posx As Long
+    Dim Ans_posy As Long
+    Dim Ans_TotalCount As Long
+    Dim Ana_posy As Long
+    Dim Ana_posx As Long
+    
+    Dim Q_TotalCount As Byte
+    Dim Q_para(30) As Q_st
+    
+    Dim AnsList As Variant
+    Dim DataList As Variant
+    
+    Dim CheckData As Variant
+    
+    Dim Pastposy As Long
+    Dim Pastposx As Long
+    Dim PastOffset As Long
+    
+    Dim Listposy As Long
+    Dim Listposx As Long
+    
+    Dim Chartposy As Long
+    Dim Chartposx As Long
+    Dim ChartNo As Long
+    
+    Pastposy = 1
+    Pastposx = 1
+    PastOffset = 30
+    y = 1
+    x = 1
+    i = 1
+    Ans_posy = 2
+    Ans_posx = 0
+    ChartNo = 1
+    '
+    'MainNo = 2
+    'SubNo = 5
+    'AnalyzeON = True
+    
+    Application.ScreenUpdating = False
+    
+    
+    Erase SectionList
+    Set TestSheet(0) = ThisWorkbook.Sheets("設定")
+    With TestSheet(0)
+        If .Cells(20, 5).Value = 0 Then
+            AnalyzeON = False
         Else
-            Q_para(j).Ans_Sum(CheckData) = Q_para(j).Ans_Sum(CheckData) + 1
+            AnalyzeON = True
+            SubNo = .Cells(20, 5).Value
         End If
-    Next
-Next
-TestSheet(1).Activate
-Sheets.Add After:=ActiveSheet
-Set TestSheet(2) = ActiveSheet
-'Set TestSheet(2) = ThisWorkbook.Sheets("Sheet3")
-'TestSheet(2).Activate
-'TestSheet(2).Cells.Clear
-'Call ChartClear
-With TestSheet(2)
-
-    If AnalyzeON = False Then PastOffset = 15
-
-    '------------------メインリスト作成------------
-    For i = 1 To Q_TotalCount
-        ReDim DataList(1 To Q_para(i).Ans_Count + 2, 1 To 2)
-        DataList(1, 2) = Q_para(i).Q_Contents
-        For j = 1 To Q_para(i).Ans_Count
-            DataList(j + 1, 1) = Q_para(i).Ans_St(j)
-            DataList(j + 1, 2) = Q_para(i).Ans_Sum(j)
-            
+        Do
+            If .Cells(y, x).Value = "" Then Exit Do
+            Q_TotalCount = x
+            Q_para(x).Ans_Count = .Cells(y, x).Value
+            Q_para(x).Q_Contents = .Cells(y + 1, x).Value
+            Do
+                If .Cells(y + 2, x).Value = "" Then Exit Do
+                Q_para(x).Ans_St(i) = .Cells(y + 2, x).Value
+                Q_para(x).Ans_Sum(i) = 0
+                y = y + 1
+                i = i + 1
+            Loop
+            y = 1
+            i = 1
+            x = x + 1
+        Loop
+    End With
+    Set TestSheet(1) = ThisWorkbook.Sheets("回答")
+    AnsList = TestSheet(1).Range("A1").CurrentRegion
+    Ans_TotalCount = UBound(AnsList, 1) - 2
+    For i = 1 To Ans_TotalCount
+        Call Section_Input(AnsList(i + Ans_posy, 2 + Ans_posx))
+        For j = 1 To Q_TotalCount
+            CheckData = AnsList(i + Ans_posy, j + Ans_posx + 2)
+            If CheckData = Empty Then
+                 Q_para(j).Ans_Sum(0) = Q_para(j).Ans_Sum(0) + 1
+            Else
+                Q_para(j).Ans_Sum(CheckData) = Q_para(j).Ans_Sum(CheckData) + 1
+            End If
         Next
-        DataList(j + 1, 1) = "未回答"
-        DataList(j + 1, 2) = Q_para(i).Ans_Sum(0)
-        Listposy = Pastposy + UBound(DataList, 1) - 1
-        Listposx = Pastposx + UBound(DataList, 2) - 1
-        .Range(.Cells(Pastposy, Pastposx), .Cells(Listposy, Listposx)) = DataList
-        
-        Call NormalChart_Add(ChartNo, Pastposy, Pastposx, Listposy - Pastposy + 1, Pastposy, 1, PastOffset - 1, 6)
-        ChartNo = ChartNo + 1
-        '------------------分析リスト作成------------
-        MainNo = i
-        If AnalyzeON = True Then
-        
-            ReDim AnalysisList(1 To Q_para(MainNo).Ans_Count + 2, 1 To Q_para(SubNo).Ans_Count + 2)
-              For k = 1 To Q_para(MainNo).Ans_Count + 2
-                  For j = 1 To Q_para(SubNo).Ans_Count + 2
-                  AnalysisList(k, j) = 0
-                  Next
-              Next
-              
-              For k = 1 To Ans_TotalCount
-                  If AnsList(k + Ans_posy, MainNo + Ans_posx + 2) = Empty Then
-                      Ana_posy = Q_para(MainNo).Ans_Count + 2
-                  Else
-                      Ana_posy = AnsList(k + Ans_posy, MainNo + Ans_posx + 2) + 1
-                  End If
-                  
-                  If AnsList(k + Ans_posy, SubNo + Ans_posx + 2) = Empty Then
-                      Ana_posx = Q_para(SubNo).Ans_Count + 2
-                  Else
-                      Ana_posx = AnsList(k + Ans_posy, SubNo + Ans_posx + 2) + 1
-                  End If
-                  AnalysisList(Ana_posy, Ana_posx) = AnalysisList(Ana_posy, Ana_posx) + 1
-              Next
-            For k = 1 To UBound(AnalysisList, 1) - 1
-                AnalysisList(k + 1, 1) = Q_para(MainNo).Ans_St(k)
-            Next
-            AnalysisList(k, 1) = "未回答"
-            For k = 1 To UBound(AnalysisList, 2) - 1
-                AnalysisList(1, k + 1) = Q_para(SubNo).Ans_St(k)
-            Next
-            AnalysisList(1, k) = "未回答"
-            AnalysisList(1, 1) = Q_para(SubNo).Q_Contents
-            Listposy = Pastposy + UBound(AnalysisList, 1) - 1
-            Listposx = Pastposx + UBound(AnalysisList, 2) - 1
-            .Range(.Cells(Pastposy, Pastposx + 2), .Cells(Listposy, Listposx + 2)) = AnalysisList
-             Call AnalyzeChart_Add(ChartNo, Pastposy, Pastposx + 2, UBound(AnalysisList, 1), UBound(AnalysisList, 2), Pastposy, 7, PastOffset - 1, 6)
-             ChartNo = ChartNo + 1
-        End If
-        Pastposy = Pastposy + PastOffset
     Next
-    .Cells(1, 1).Select
-End With
-For i = 0 To 10
-    Set TestSheet(i) = Nothing
-Next
-
-Application.ScreenUpdating = True
-MsgBox ("分析完了")
+    TestSheet(1).Activate
+    Sheets.Add After:=ActiveSheet
+    Set TestSheet(2) = ActiveSheet
+    
+    With TestSheet(2)
+    
+        If AnalyzeON = False Then PastOffset = 15
+    
+        '------------------メインリスト作成------------
+        For i = 1 To Q_TotalCount
+            ReDim DataList(1 To Q_para(i).Ans_Count + 2, 1 To 2)
+            DataList(1, 2) = Q_para(i).Q_Contents
+            For j = 1 To Q_para(i).Ans_Count
+                DataList(j + 1, 1) = Q_para(i).Ans_St(j)
+                DataList(j + 1, 2) = Q_para(i).Ans_Sum(j)
+            Next
+            DataList(j + 1, 1) = "未回答"
+            DataList(j + 1, 2) = Q_para(i).Ans_Sum(0)
+            Listposy = Pastposy + UBound(DataList, 1) - 1
+            Listposx = Pastposx + UBound(DataList, 2) - 1
+            .Range(.Cells(Pastposy, Pastposx), .Cells(Listposy, Listposx)) = DataList
+            
+            Call NormalChart_Add(ChartNo, Pastposy, Pastposx, Listposy - Pastposy + 1, Pastposy, 1, PastOffset - 1, 6)
+            ChartNo = ChartNo + 1
+            '------------------分析リスト作成------------
+            MainNo = i
+            If AnalyzeON = True Then
+                ReDim AnalysisList(1 To Q_para(MainNo).Ans_Count + 2, 1 To Q_para(SubNo).Ans_Count + 2)
+                  For k = 1 To Q_para(MainNo).Ans_Count + 2
+                      For j = 1 To Q_para(SubNo).Ans_Count + 2
+                      AnalysisList(k, j) = 0
+                      Next
+                  Next
+                  For k = 1 To Ans_TotalCount
+                      If AnsList(k + Ans_posy, MainNo + Ans_posx + 2) = Empty Then
+                          Ana_posy = Q_para(MainNo).Ans_Count + 2
+                      Else
+                          Ana_posy = AnsList(k + Ans_posy, MainNo + Ans_posx + 2) + 1
+                      End If
+                      
+                      If AnsList(k + Ans_posy, SubNo + Ans_posx + 2) = Empty Then
+                          Ana_posx = Q_para(SubNo).Ans_Count + 2
+                      Else
+                          Ana_posx = AnsList(k + Ans_posy, SubNo + Ans_posx + 2) + 1
+                      End If
+                      AnalysisList(Ana_posy, Ana_posx) = AnalysisList(Ana_posy, Ana_posx) + 1
+                  Next
+                For k = 1 To UBound(AnalysisList, 1) - 1
+                    AnalysisList(k + 1, 1) = Q_para(MainNo).Ans_St(k)
+                Next
+                AnalysisList(k, 1) = "未回答"
+                For k = 1 To UBound(AnalysisList, 2) - 1
+                    AnalysisList(1, k + 1) = Q_para(SubNo).Ans_St(k)
+                Next
+                AnalysisList(1, k) = "未回答"
+                AnalysisList(1, 1) = Q_para(SubNo).Q_Contents
+                Listposy = Pastposy + UBound(AnalysisList, 1) - 1
+                Listposx = Pastposx + UBound(AnalysisList, 2) - 1
+                .Range(.Cells(Pastposy, Pastposx + 2), .Cells(Listposy, Listposx + 2)) = AnalysisList
+                Call AnalyzeChart_Add(ChartNo, Pastposy, Pastposx + 2, UBound(AnalysisList, 1), UBound(AnalysisList, 2), Pastposy, 7, PastOffset - 1, 6)
+                ChartNo = ChartNo + 1
+            End If
+            Pastposy = Pastposy + PastOffset
+        Next
+        .Cells(1, 1).Select
+    End With
+    For i = 0 To 10
+        Set TestSheet(i) = Nothing
+    Next
+    Application.ScreenUpdating = True
+    MsgBox ("分析完了")
 End Sub
 
 
@@ -308,7 +187,6 @@ Sub ChartClear()
     Dim intObj As Integer
     Dim i As Integer
     Dim ChartHight(5) As Long
-
     
     With ActiveSheet
         intObj = .ChartObjects.Count
@@ -375,4 +253,107 @@ Sub Section_Input(ByVal Section As String)
         SectionList(0) = Section
     End If
     
+End Sub
+Sub DataCopy()
+    Dim buf As String, cnt, i As Long
+    Dim Shell, myPath
+    Dim f As Object
+    Dim FileList(50) As String
+    Dim WBK As Workbook
+    Dim Range1 As Range
+    Dim Q_TotalCount As Byte
+    Dim DataEndRow As Long
+    
+    DataCopyFinish = False
+    Set Shell = CreateObject("Shell.Application")
+    Set myPath = Shell.BrowseForFolder(&O0, "フォルダを選んでください", &H1 + &H10, "C:\Users\ko\Desktop\集計フォルダ")
+    If myPath Is Nothing Then
+       MsgBox ("フォルダが選択されていません")
+       Exit Sub
+    End If
+    With CreateObject("Scripting.FileSystemObject")
+        For Each f In .GetFolder(myPath).Files
+            FileList(cnt) = f.Path
+            cnt = cnt + 1
+'            Debug.Print f.Path
+        Next f
+    End With
+    
+    Application.ScreenUpdating = False
+    Set TestSheet(0) = ThisWorkbook.Sheets("設定")
+    Set TestSheet(1) = ThisWorkbook.Sheets("回答")
+    Set TestSheet(2) = ThisWorkbook.Sheets("自由意見")
+    
+    TestSheet(1).Cells.Clear
+    TestSheet(2).Cells.Clear
+    Set Range1 = TestSheet(0).Range("A1").CurrentRegion.Resize(2)
+     Q_TotalCount = Range1.Columns.Count
+    With TestSheet(1)
+        .Range(.Cells(1, 3), .Cells(2, Q_TotalCount + 2)).Value = Range1.Value
+        .Range("A2").Value = "No"
+        .Range("B2").Value = "所属"
+    End With
+    Set Range1 = TestSheet(0).Range("A15").CurrentRegion.Resize(2)
+     Q_TotalCount = Range1.Columns.Count
+    With TestSheet(2)
+        .Range(.Cells(2, 3), .Cells(2, Q_TotalCount + 2)).Value = Range1.Value
+        .Range("A2").Value = "No"
+        .Range("B2").Value = "所属"
+    End With
+   
+    'FileList(0) = "C:\Users\ko\Desktop\集計フォルダ\1技1データ.xlsx"
+    'FileList(1) = "C:\Users\ko\Desktop\集計フォルダ\1技2データ.xlsx"
+    i = 0
+    Do
+        If FileList(i) = Empty Then Exit Do
+        DataEndRow = TestSheet(1).Range("A1").CurrentRegion.Rows.Count + 1
+        Set WBK = Workbooks.Open(FileList(i))
+        
+        '------------------回答貼り付け-------------------
+        With WBK.Sheets(1).Range("A1").CurrentRegion.Offset(2, 0)
+             If .Rows.Count > 2 Then
+                Set Range1 = .Resize(.Rows.Count - 2)
+             End If
+        End With
+        With TestSheet(1)
+            .Range(.Cells(DataEndRow, 1), .Cells(DataEndRow + Range1.Rows.Count - 1, Range1.Columns.Count)).Value = Range1.Value
+        End With
+        '-------------------自由意見貼り付け---------------
+        DataEndRow = TestSheet(2).Range("A1").CurrentRegion.Rows.Count + 1
+        With WBK.Sheets(2).Range("A1").CurrentRegion.Offset(2, 0)
+             If .Rows.Count > 2 Then
+                Set Range1 = .Resize(.Rows.Count - 2)
+             End If
+        End With
+        With TestSheet(2)
+            .Range(.Cells(DataEndRow, 1), .Cells(DataEndRow + Range1.Rows.Count - 1, Range1.Columns.Count)).Value = Range1.Value
+        End With
+        WBK.Close
+        i = i + 1
+    Loop
+    TestSheet(1).Range("A1").CurrentRegion.Borders.LineStyle = xlContinuous
+    TestSheet(2).Range("A1").CurrentRegion.Borders.LineStyle = xlContinuous
+    Set Shell = Nothing
+    Set myPath = Nothing
+    For i = 0 To 10
+        Set TestSheet(i) = Nothing
+    Next
+     DataCopyFinish = True
+    Application.ScreenUpdating = True
+End Sub
+
+
+
+
+-------------------------------------------------------------------
+Private Sub CommandButton1_Click()
+Call Module1.DataCopy
+If Module1.DataCopyFinish = True Then
+    Call Module1.Select_Analysis
+End If
+End Sub
+
+Private Sub CommandButton2_Click()
+Call Module1.Select_Analysis
+
 End Sub
