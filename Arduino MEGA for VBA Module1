@@ -1,0 +1,248 @@
+Option Explicit
+#If VBA7 Then
+ Public Declare PtrSafe Sub Sleep Lib "kernel32" (ByVal dwMilliseconds As LongPtr) 'For 64 Bit Systems
+#Else
+ Public Declare Sub Sleep Lib "kernel32" (ByVal dwMilliseconds As Long)  'For 32 Bit Systems
+#End If
+Public fileHandle As Long
+Public CommError As Long
+Public CommStatus As COMSTAT
+
+Public Const GENERIC_READ = &H80000000
+Public Const GENERIC_WRITE = &H40000000
+Public Const FILE_ATTRIBUTE_NORMAL = &H80
+Public Const OPEN_EXISTING = 3
+
+Declare PtrSafe Function CreateFile Lib "kernel32" Alias "CreateFileA" _
+                         (ByVal lpFileName As String, _
+                         ByVal dwDesiredAccess As Long, _
+                         ByVal dwShareMode As Long, _
+                         ByVal lpSecurityAttributes As Long, _
+                         ByVal dwCreationDisposition As Long, _
+                         ByVal dwFlagsAndAttributes As Long, _
+                         ByVal hTemplateFile As Long) As Long
+
+Declare PtrSafe Function WriteFile Lib "kernel32" _
+                         (ByVal hFile As Long, _
+                         lpBuffer As Any, _
+                         ByVal nNumberOfBytesToWrite As Long, _
+                         lpNumberOfBytesWritten As Long, _
+                         ByVal lpOverlapped As Long) As Boolean
+
+Declare PtrSafe Function ReadFile Lib "kernel32" _
+                         (ByVal hFile As Long, lpBuffer As Any, _
+                         ByVal nNumberOfBytesToRead As Long, _
+                         lpNumberOfBytesRead As Long, _
+                         ByVal lpOverlapped As Long) As Boolean
+
+Declare PtrSafe Function CloseHandle Lib "kernel32" _
+                         (ByVal hObject As Long) As Long
+
+Declare PtrSafe Function FlushFileBuffers Lib "kernel32" _
+                         (ByVal hFile As Long) As Long
+
+Declare PtrSafe Function SetCommState Lib "kernel32" _
+                         (ByVal hCommDev As Long, _
+                         lpDCB As DCB) As Long
+
+Declare PtrSafe Function SetCommTimeouts Lib "kernel32" _
+                         (ByVal hFile As Long, _
+                         lpCommTimeouts As COMMTIMEOUTS) As Long
+
+Declare PtrSafe Function SetCommMask Lib "kernel32" _
+                         (ByVal hFile As Long, _
+                         ByVal dwEvtMask As Long) As Long
+
+Declare PtrSafe Function SetupComm Lib "kernel32" _
+                         (ByVal hFile As Long, _
+                         ByVal dwInQueue As Long, _
+                         ByVal dwOutQueue As Long) As Long
+
+Declare PtrSafe Function GetCommState Lib "kernel32" _
+                         (ByVal nCid As Long, lpDCB As DCB) As Long
+
+Declare PtrSafe Function ClearCommError Lib "kernel32" _
+                         (ByVal hFile As Long, _
+                         lpErrors As Long, _
+                         lpStat As COMSTAT) As Long
+                         
+Declare PtrSafe Function PurgeComm Lib "kernel32" _
+    (ByVal hFile As Long, _
+     ByVal dwFlags As Long) As Long
+     
+Type DCB
+    DCBlength As Long
+    BaudRate As Long
+    bfModeCTL As Long
+    wReserved As Integer
+    XonLim As Integer
+    XoffLim As Integer
+    ByteSize As Byte
+    Parity As Byte
+    StopBits As Byte
+    XonChar As Byte
+    XoffChar As Byte
+    ErrorChar As Byte
+    EofChar As Byte
+    EvtChar As Byte
+    wReserved1 As Integer
+End Type
+
+Type COMMTIMEOUTS
+    ReadIntervalTimeout As Long
+    ReadTotalTimeoutMultiplier As Long
+    ReadTotalTimeoutConstant As Long
+    WriteTotalTimeoutMultiplier As Long
+    WriteTotalTimeoutConstant As Long
+End Type
+
+Type COMSTAT
+    bfHold As Long
+    cbInQue As Long
+    cbOutQue As Long
+End Type
+'ポートオープン
+'ポートオープン
+Public Function portOpen(ComNo As Byte) As Long
+    Dim Tmo As COMMTIMEOUTS
+    Dim CommCB As DCB
+    Dim strPort As String
+    Dim lngBaud As Long
+    
+    strPort = "\\.\COM" & CStr(ComNo)
+    lngBaud = 115200
+    
+    portOpen = CreateFile(strPort, (GENERIC_READ Or GENERIC_WRITE), _
+                                 0&, 0&, OPEN_EXISTING, _
+                                 FILE_ATTRIBUTE_NORMAL, 0&)
+    
+    If portOpen = -1 Then Exit Function
+    SetCommMask portOpen, 0&
+    SetupComm portOpen, 10000, 1024&
+    
+    Tmo.ReadIntervalTimeout = 0
+    Tmo.ReadTotalTimeoutMultiplier = CLng(40000 / lngBaud + 1)
+    Tmo.ReadTotalTimeoutConstant = 1000&
+    Tmo.WriteTotalTimeoutMultiplier = CLng(40000 / lngBaud + 1)
+    Tmo.WriteTotalTimeoutConstant = 1000&
+    
+    SetCommTimeouts portOpen, Tmo
+    GetCommState portOpen, CommCB
+    
+    CommCB.DCBlength = LenB(CommCB)
+    CommCB.BaudRate = lngBaud
+    CommCB.bfModeCTL = &H2055
+    CommCB.XoffLim = 64
+    CommCB.XonLim = 64
+    CommCB.ByteSize = 8
+    CommCB.Parity = 0
+    CommCB.StopBits = 0
+    
+    If SetCommState(portOpen, CommCB) = 0 Then GoTo CommOpenErr
+    Exit Function
+    
+CommOpenErr:
+    CloseHandle (portOpen)
+    portOpen = -2
+    
+End Function
+'ポートクローズ
+Public Sub portClose(ByVal hcomm As Long)
+    CloseHandle hcomm
+End Sub
+
+'送受信
+Public Function wrkRsComm(ByVal hdlComm As Long, _
+                                strSend As String, strRet As String) As Long
+    Dim bolRet As Boolean
+    Dim lngLen As Long
+    Dim lngCnt As Long
+    Dim strRev As String * 1000
+    Dim sttmr As Single
+    Dim ctmr As Single
+    
+    wrkRsComm = 0
+    strRet = ""
+    
+    '送信
+    lngLen = Len(strSend)
+    bolRet = WriteFile(hdlComm, ByVal strSend, lngLen, lngCnt, 0&)
+    
+    '送信エラー
+    If lngCnt < lngLen Then
+        Call ClearCommError(hdlComm, CommError, CommStatus)
+        strRet = "ERROR"
+        Call portClose(hdlComm)
+        Exit Function
+    End If
+    
+    'ウェイト
+    sttmr = Timer
+    
+    '受信
+    Do
+        ctmr = Timer
+        DoEvents
+        bolRet = ReadFile(hdlComm, ByVal strRev, 20, lngCnt, 0)
+        
+        If lngCnt <> 0 Then
+            strRet = strRet & Left$(strRev, lngCnt)
+            wrkRsComm = wrkRsComm + lngCnt
+            If InStr(strRet, vbCrLf) > 0 Then Exit Do
+        End If
+        
+        'タイムアウト
+        If ctmr > sttmr + 2 Then
+            strRet = "time out"
+            Exit Do
+        End If
+    Loop
+    
+End Function
+
+
+Sub Click()
+  Dim WS As Worksheet
+  Dim Y As Long
+  Dim X As Long
+  Dim PinNo As Byte
+  Dim lngRet As Long
+  Dim strCmd As String
+  Dim strRev As String
+  
+  Set WS = ActiveSheet
+  If WS.Cells(5, 2).Value <> "連接中" Then
+     MsgBox ("連接されていません"), Buttons:=vbCritical
+     Exit Sub
+  Else
+    WS.Cells(5, 2).Value = "出力切替中"
+  End If
+  Application.ScreenUpdating = False
+  With WS.Shapes(Application.Caller).TopLeftCell
+    Y = .Row
+    X = .Column
+  End With
+  PinNo = WS.Cells(Y, X - 2).Value
+  Select Case WS.Cells(Y, X - 1).Value
+    Case "L"
+        strCmd = "S" & CStr(PinNo) & "=1" + vbCr
+        lngRet = wrkRsComm(fileHandle, strCmd, strRev)
+'        Debug.Print strRev
+'        Debug.Print lngRet
+        If InStr(strRev, "->") > 0 Then
+            WS.Cells(Y, X - 1).Value = "H"
+        End If
+    Case "H"
+        strCmd = "S" & CStr(PinNo) & "=0" + vbCr
+        lngRet = wrkRsComm(fileHandle, strCmd, strRev)
+'        Debug.Print strRev
+'        Debug.Print lngRet
+        If InStr(strRev, "->") > 0 Then
+            WS.Cells(Y, X - 1).Value = "L"
+        End If
+  End Select
+  WS.Cells(7, 1).Value = strRev
+  WS.Cells(5, 2).Value = "連接中"
+  Application.ScreenUpdating = True
+
+End Sub
