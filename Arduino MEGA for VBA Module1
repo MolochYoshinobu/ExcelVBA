@@ -7,7 +7,7 @@ Option Explicit
 Public fileHandle As Long
 Public CommError As Long
 Public CommStatus As COMSTAT
-
+Public Mode As Boolean
 Public Const GENERIC_READ = &H80000000
 Public Const GENERIC_WRITE = &H40000000
 Public Const FILE_ATTRIBUTE_NORMAL = &H80
@@ -102,7 +102,6 @@ Type COMSTAT
     cbOutQue As Long
 End Type
 'ポートオープン
-'ポートオープン
 Public Function portOpen(ComNo As Byte) As Long
     Dim Tmo As COMMTIMEOUTS
     Dim CommCB As DCB
@@ -175,27 +174,29 @@ Public Function wrkRsComm(ByVal hdlComm As Long, _
         Call portClose(hdlComm)
         Exit Function
     End If
-    
     'ウェイト
     sttmr = Timer
     
     '受信
     Do
-        ctmr = Timer
         DoEvents
-        bolRet = ReadFile(hdlComm, ByVal strRev, 20, lngCnt, 0)
+        ctmr = Timer
+        bolRet = ReadFile(hdlComm, ByVal strRev, 50, lngCnt, 0)
         
         If lngCnt <> 0 Then
             strRet = strRet & Left$(strRev, lngCnt)
             wrkRsComm = wrkRsComm + lngCnt
-            If InStr(strRet, vbCrLf) > 0 Then Exit Do
+            'If InStr(strRet, vbCrLf) > 0 Then Exit Do
+            'Debug.Print strRet
+            If InStr(strRet, "->") > 0 Then Exit Do
         End If
-        
-        'タイムアウト
+
+'        タイムアウト
         If ctmr > sttmr + 2 Then
             strRet = "time out"
             Exit Do
         End If
+
     Loop
     
 End Function
@@ -209,40 +210,71 @@ Sub Click()
   Dim lngRet As Long
   Dim strCmd As String
   Dim strRev As String
-  
+  Dim Stimer As Single
+ 
+  If Module2.Eventflg = True Then
+        Exit Sub
+  Else
+        Module2.Eventflg = True
+  End If
   Set WS = ActiveSheet
+  With WS.OptionButtons(1)
+        If .Value = xlOn Then
+            Mode = True
+        Else
+            Mode = False
+        End If
+  End With
   If WS.Cells(5, 2).Value <> "連接中" Then
      MsgBox ("連接されていません"), Buttons:=vbCritical
+     Module2.Eventflg = False
      Exit Sub
   Else
     WS.Cells(5, 2).Value = "出力切替中"
   End If
-  Application.ScreenUpdating = False
+  
+  Application.ScreenUpdating = False '画面描画を停止
+  'Application.EnableEvents = False 'イベントを抑止
   With WS.Shapes(Application.Caller).TopLeftCell
     Y = .Row
     X = .Column
   End With
   PinNo = WS.Cells(Y, X - 2).Value
-  Select Case WS.Cells(Y, X - 1).Value
-    Case "L"
-        strCmd = "S" & CStr(PinNo) & "=1" + vbCr
-        lngRet = wrkRsComm(fileHandle, strCmd, strRev)
-'        Debug.Print strRev
-'        Debug.Print lngRet
-        If InStr(strRev, "->") > 0 Then
-            WS.Cells(Y, X - 1).Value = "H"
-        End If
-    Case "H"
-        strCmd = "S" & CStr(PinNo) & "=0" + vbCr
-        lngRet = wrkRsComm(fileHandle, strCmd, strRev)
-'        Debug.Print strRev
-'        Debug.Print lngRet
-        If InStr(strRev, "->") > 0 Then
-            WS.Cells(Y, X - 1).Value = "L"
-        End If
+  fileHandle = WS.Cells(4, 2).Value
+  Select Case True
+    Case InStr(WS.Cells(Y, X - 1).Value, "L") > 0
+        Select Case Mode
+            Case True
+                WS.Cells(Y, X - 1).Value = "(H)"
+            Case False
+                strCmd = "S" & CStr(PinNo) & "=1" + vbCr
+                lngRet = wrkRsComm(fileHandle, strCmd, strRev)
+        '        Debug.Print strRev
+        '        Debug.Print lngRet
+                If InStr(strRev, "->") > 0 Then
+                    WS.Cells(Y, X - 1).Value = "H"
+                End If
+        End Select
+    Case InStr(WS.Cells(Y, X - 1).Value, "H") > 0
+        Select Case Mode
+            Case True
+                WS.Cells(Y, X - 1).Value = "(L)"
+            Case False
+                strCmd = "S" & CStr(PinNo) & "=0" + vbCr
+                lngRet = wrkRsComm(fileHandle, strCmd, strRev)
+        '        Debug.Print strRev
+        '        Debug.Print lngRet
+                If InStr(strRev, "->") > 0 Then
+                    WS.Cells(Y, X - 1).Value = "L"
+                End If
+            End Select
   End Select
   WS.Cells(7, 1).Value = strRev
+  If InStr(strRev, "ERROR") > 0 Then MsgBox ("エラーを検出しました")
   WS.Cells(5, 2).Value = "連接中"
-  Application.ScreenUpdating = True
-
+  'Debug.Print Timer - Stimer
+  'Application.EnableEvents = True 'イベントを開始
+  Application.ScreenUpdating = True '画面描画を開始
+  Module2.Eventflg = False
+  Set WS = Nothing
 End Sub
