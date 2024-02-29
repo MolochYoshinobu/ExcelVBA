@@ -1,0 +1,544 @@
+Option Explicit
+Public Eventflg As Boolean
+Public EventflgNo As Byte
+
+Function GetUseComNo() As String
+    Dim Serial        As Object
+    Dim SerialSet     As Object
+    Dim objWMIService As Object
+    Dim strComputer   As String
+    Dim intCnt        As Integer    '要素数
+    Dim strComName    As String     '取得したデバイス名
+
+    strComputer = "."
+    'WMIを呼び出す
+    Set objWMIService = GetObject("winmgmts:\\" & strComputer & "\root\cimv2")
+
+    'PnPで登録されているもの（デバイスマネージャで見えるもの）から
+    'シリアルポートのクラスでかつ名前に「(COMxx)」と付いているものを抽出
+    Set SerialSet = objWMIService.ExecQuery("Select * from Win32_PNPEntity Where " & _
+                    "(ClassGuid = '{4D36E978-E325-11CE-BFC1-08002BE10318}') and " & _
+                    "(Name like '%(COM%)')")
+
+    '全ポートの数(取得できた項目数)
+    intCnt = SerialSet.Count
+    
+    '情報の取得
+    strComName = ""
+    For Each Serial In SerialSet
+        'デバイス名を取得 「"通信ポート (COM1)"」
+        If strComName <> "" Then
+            strComName = strComName & ","
+        End If
+        strComName = strComName & Serial.Name
+    Next
+
+    '戻り値セット
+    GetUseComNo = strComName
+End Function
+
+Sub 接続_Click()
+    Dim WS As Worksheet
+    Dim deviceName As String
+    Dim ComStr As Variant
+    Dim ComPortNo As Byte
+    Dim Comname As Variant
+    Dim Recstr As String
+    Dim cnt As Long
+    Dim strCmd As String
+    Dim strRev As String
+    Dim Rt As Long
+    Dim lngRet As Long
+    Dim i As Long
+    
+    If Module2.Eventflg = True Then
+        Exit Sub
+    Else
+        Module2.Eventflg = True
+    End If
+    Set WS = ActiveSheet
+
+    Module2.EventflgNo = 0
+    
+    UserForm1.Show
+    If Module2.EventflgNo < 1 Then
+        MsgBox ("COMポートとの連接がキャンセルされました。"), Buttons:=vbCritical
+        Module2.Eventflg = False
+        Set WS = Nothing
+        Exit Sub
+    End If
+    ComPortNo = Val(Replace(WS.Cells(3, 2).Value, "COM", ""))
+    deviceName = WS.Cells(2, 2).Value
+    'Debug.Print fileHandle
+    WS.Cells(1, 1).Select
+    UserForm2.Show
+    UserForm2.Repaint
+    fileHandle = portOpen(ComPortNo)
+    Application.ScreenUpdating = False
+    If fileHandle > 0 And WS.Cells(4, 2).Value <> fileHandle Then
+        WS.Cells(4, 2).Value = fileHandle
+    End If
+    If fileHandle < 0 Then
+        If WS.Cells(4, 2).Value = "解放" Then
+            Unload UserForm2
+            MsgBox ("既にCOMﾎﾟｰﾄは解放済みです。" & vbCr & "意図しないエラーの場合は、ファイルを閉じてください")
+            Application.ScreenUpdating = True
+            Module2.Eventflg = False
+            Exit Sub
+        End If
+        fileHandle = WS.Cells(4, 2).Value
+        Call portClose(fileHandle)
+        fileHandle = portOpen(ComPortNo)
+    End If
+    WS.Cells(4, 2).Value = fileHandle
+    If fileHandle < 0 Then
+        Unload UserForm2
+        MsgBox ("COMポート接続に失敗しました")
+        Application.ScreenUpdating = True
+        Module2.Eventflg = False
+        Set WS = Nothing
+        Exit Sub
+    End If
+    Sleep 1000
+    strCmd = vbCr
+    lngRet = wrkRsComm(fileHandle, strCmd, strRev)
+    
+    'Debug.Print strRev
+    If InStr(strRev, "->") > 0 Then
+        i = 0
+        Do
+            If WS.Cells(10 + i, 5).Value = "" Then Exit Do
+                WS.Cells(10 + i, 5).Value = "L"
+                i = i + 1
+        Loop
+            strCmd = "ALL0" & vbCr
+            lngRet = wrkRsComm(fileHandle, strCmd, strRev)
+            WS.Cells(7, 1).Value = strRev
+            If InStr(strRev, "->") > 0 Then
+                WS.Cells(5, 2).Value = "連接中"
+                Unload UserForm2
+                MsgBox (deviceName & "と連接しました")
+            Else
+                WS.Cells(5, 2).Value = "連接失敗"
+                Unload UserForm2
+                MsgBox (deviceName & "へのコマンド送信時に異常が発生しました。"), Buttons:=vbCritical
+            End If
+    Else
+            WS.Cells(5, 2).Value = "連接失敗"
+            Unload UserForm2
+            MsgBox (deviceName & "と連接されていません"), Buttons:=vbCritical
+    End If
+    Application.ScreenUpdating = True
+    Module2.Eventflg = False
+    Set WS = Nothing
+End Sub
+Sub 解放_Click()
+    Dim WS As Worksheet
+    Dim i As Long
+    Dim strCmd As String
+    Dim strRev As String
+    Dim lngRet As Long
+    
+    If Module2.Eventflg = True Then
+        Exit Sub
+    Else
+        Module2.Eventflg = True
+    End If
+    Set WS = ActiveSheet
+
+    If WS.Cells(4, 2).Value = "解放" Then
+        MsgBox ("既にCOMﾎﾟｰﾄを解放済みか他で占有されています"), Buttons:=vbCritical
+    Else
+        strCmd = "ALLOFF" & vbCr
+        lngRet = wrkRsComm(fileHandle, strCmd, strRev)
+        WS.Cells(7, 1).Value = strRev
+        If InStr(strRev, "->") > 0 Then
+            WS.Cells(7, 1).Value = strRev
+            Call portClose(WS.Cells(4, 2).Value)
+            WS.Cells(4, 2).Value = "解放"
+            WS.Cells(5, 2).Value = ""
+            i = 0
+            Application.ScreenUpdating = False
+            Do
+                If WS.Cells(10 + i, 5).Value = "" Then Exit Do
+                WS.Cells(10 + i, 5).Value = "L"
+                i = i + 1
+            Loop
+            Application.ScreenUpdating = True
+            MsgBox ("COMﾎﾟｰﾄの切断及び出力をLにしました。")
+        Else
+            WS.Cells(5, 2).Value = "連接失敗"
+            MsgBox ("出力OFFのコマンド送信時に異常が発生しました。"), Buttons:=vbCritical
+        End If
+    End If
+    Module2.Eventflg = False
+    Set WS = Nothing
+End Sub
+Sub LED点滅Click()
+    Dim WS As Worksheet
+    Dim i As Long
+    Dim strCmd As String
+    Dim strRev As String
+    Dim lngRet As Long
+    
+    If Module2.Eventflg = True Then
+        Exit Sub
+    Else
+        Module2.Eventflg = True
+    End If
+    Set WS = ActiveSheet
+
+    If WS.Cells(4, 2).Value = "解放" Then
+        MsgBox ("既にCOMﾎﾟｰﾄを解放済みか他で占有されています"), Buttons:=vbCritical
+    Else
+        strCmd = "BLINK_LED" & vbCr
+        lngRet = wrkRsComm(fileHandle, strCmd, strRev)
+        WS.Cells(7, 1).Value = strRev
+        If InStr(strRev, "->") > 0 Then
+            WS.Cells(7, 1).Value = strRev
+            Application.ScreenUpdating = True
+        Else
+            WS.Cells(5, 2).Value = "連接失敗"
+            MsgBox ("LEDの点滅確認時に異常が発生しました。"), Buttons:=vbCritical
+        End If
+    End If
+    MsgBox ("LEDの点滅確認終了")
+    
+    Module2.Eventflg = False
+    Set WS = Nothing
+End Sub
+
+Sub COMポート一覧_Click()
+    Dim WS As Worksheet
+    Dim deviceName As String
+    Dim ComStr As Variant
+    Dim ComPortNo As Byte
+    Dim Comname As Variant
+    Dim Recstr As String
+    Dim cnt As Long
+    Dim strCmd As String
+    Dim strRev As String
+    Dim Rt As Long
+    Dim lngRet As Long
+    Dim i As Long
+    
+    Set WS = ActiveSheet
+    WS.Application.ScreenUpdating = False
+    
+    WS.Range("J2").CurrentRegion.ClearContents
+    ComStr = Split(GetUseComNo, ",")
+    i = 0
+    For Each Comname In ComStr
+        WS.Cells(3 + i, 10).Value = Trim(Comname)
+        i = i + 1
+    Next
+    Set WS = Nothing
+End Sub
+Sub 設定読込_Click()
+    Dim WS As Worksheet
+    Dim fType, Title As String
+    Dim fPath As Variant
+    Dim Recstr As String
+    Dim RecCsv As Variant
+    Dim i As Long
+    
+    If Module2.Eventflg = True Then
+        Exit Sub
+    Else
+        Module2.Eventflg = True
+    End If
+    Set WS = ActiveSheet
+
+    ChDrive ThisWorkbook.Path
+    ChDir ThisWorkbook.Path
+    fType = "csvﾌｧｲﾙ(*.csv),*.csv"
+    Title = "CSVﾌｧｲﾙを選択してください"
+    fPath = WS.Application.GetOpenFilename(fType, , Title)
+    If fPath = False Then
+        MsgBox ("ﾌｧｲﾙが選択されていません")
+        Module2.Eventflg = False
+        Set WS = Nothing
+        Exit Sub
+    End If
+    Open fPath For Input As #1
+    Do Until EOF(1)
+        Line Input #1, Recstr
+    Loop
+    Close #1
+    RecCsv = Split(Recstr, ",")
+    For i = 0 To UBound(RecCsv)
+      If WS.Cells(10 + i, 4).Value = "" Then Exit For
+      WS.Cells(10 + i, 5).Value = "(" & RecCsv(i) & ")"
+      WS.ToggleButton1.Value = True
+    Next
+    Module2.Eventflg = False
+    Set WS = Nothing
+End Sub
+Sub 設定保存_Click()
+    Dim SaveDataName As String
+    Dim Recstr As String
+    Dim i As Long
+            
+    If Module2.Eventflg = True Then
+        Exit Sub
+    Else
+        Module2.Eventflg = True
+    End If
+    
+        SaveDataName = ThisWorkbook.Path & "\" & Me.Cells(5, 6).Value & ".csv"
+        Open SaveDataName For Output As #1
+        i = 0
+        Do
+            If Me.Cells(10 + i, 5).Value = "" Then Exit Do
+            Recstr = Me.Cells(10 + i, 5).Value
+            Recstr = Replace(Recstr, "(", "")
+            Recstr = Replace(Recstr, ")", "")
+            Print #1, Recstr;
+            i = i + 1
+            If Me.Cells(10 + i, 5).Value <> "" Then
+                Print #1, ",";
+            End If
+        Loop
+        Close #1
+    Module2.Eventflg = False
+End Sub
+
+Sub 個別モード_Click()
+
+    With ActiveSheet.OptionButtons(1)
+        If .Value = xlOff Then
+            .Value = xlOn
+             ActiveSheet.OptionButtons(2).Value = xlOn
+        End If
+    End With
+End Sub
+Sub 更新モード_Click()
+
+    With ActiveSheet.OptionButtons(2)
+        If .Value = xlOff Then
+            .Value = xlOn
+             ActiveSheet.OptionButtons(1).Value = xlOn
+        End If
+    End With
+End Sub
+Sub 出力更新_Click()
+    Dim WS As Worksheet
+    Dim i As Long
+    Dim Status(4) As Long
+    Dim Data(4) As Long
+    Dim RecstrSt As String
+    Dim RecstrDt As String
+    Dim Bit As Byte
+    Dim Word As Byte
+    Dim strCmd As String
+    Dim strRev As String
+    Dim lngRet As Long
+    
+    If Module2.Eventflg = True Then
+        Exit Sub
+    Else
+        Module2.Eventflg = True
+    End If
+    Set WS = ActiveSheet
+    If WS.Cells(5, 2).Value <> "連接中" Then
+        MsgBox ("連接されていません"), Buttons:=vbCritical
+        Exit Sub
+    Else
+        WS.Cells(5, 2).Value = "出力切替中"
+    End If
+    Application.ScreenUpdating = False
+    
+    
+    i = 0
+    RecstrSt = ""
+    RecstrDt = ""
+    Do
+        If WS.Cells(10 + i, 5).Value = "" Then Exit Do
+        If WS.Cells(10 + i, 5).Value = "(H)" Or WS.Cells(10 + i, 5).Value = "(L)" Then
+            
+            Bit = WS.Cells(10 + i, 4).Value
+            Word = Int(Bit / 16)
+            Select Case WS.Cells(10 + i, 5).Value
+                Case "(H)"
+                    Status(Word) = Status(Word) + 2 ^ (Bit - Word * 16)
+                    Data(Word) = Data(Word) + 2 ^ (Bit - Word * 16)
+                Case "(L)"
+                    Status(Word) = Status(Word) + 2 ^ (Bit - Word * 16)
+            End Select
+        End If
+        i = i + 1
+    Loop
+    For i = 4 To 0 Step -1
+        RecstrSt = RecstrSt & Application.WorksheetFunction.Dec2Hex(Status(i), 4)
+        RecstrDt = RecstrDt & Application.WorksheetFunction.Dec2Hex(Data(i), 4)
+    Next
+    strCmd = "J" & RecstrSt & "=" & RecstrDt & vbCr
+    lngRet = wrkRsComm(fileHandle, strCmd, strRev)
+    WS.Cells(7, 1).Value = strRev
+    If InStr(strRev, "->") > 0 Then
+        i = 0
+        Do
+            If WS.Cells(10 + i, 5).Value = "" Then Exit Do
+            If WS.Cells(10 + i, 5).Value = "(H)" Or WS.Cells(10 + i, 5).Value = "(L)" Then
+                 WS.Cells(10 + i, 5).Value = Mid(WS.Cells(10 + i, 5).Value, 2, 1)
+            End If
+           i = i + 1
+        Loop
+    Else
+        MsgBox ("更新に失敗しました")
+    End If
+        WS.Cells(5, 2).Value = "連接中"
+        Application.ScreenUpdating = True
+        Module2.Eventflg = False
+        Set WS = Nothing
+End Sub
+Sub コマンド出力_Click()
+    Dim WS As Worksheet
+    Dim i As Long
+    Dim Data(4) As Long
+    Dim RecstrDt As String
+    Dim Bit As Byte
+    Dim Word As Byte
+    Dim strCmd As String
+    
+    
+    If Module2.Eventflg = True Then
+        Exit Sub
+    Else
+        Module2.Eventflg = True
+    End If
+    Application.ScreenUpdating = False
+    Set WS = ActiveSheet
+    i = 0
+    RecstrDt = ""
+    Do
+        If WS.Cells(10 + i, 5).Value = "" Then Exit Do
+            Bit = WS.Cells(10 + i, 4).Value
+            Word = Int(Bit / 16)
+            If InStr(WS.Cells(10 + i, 5).Value, "H") > 0 Then
+                    Data(Word) = Data(Word) + 2 ^ (Bit - Word * 16)
+            End If
+        i = i + 1
+    Loop
+    For i = 4 To 0 Step -1
+        RecstrDt = RecstrDt & Application.WorksheetFunction.Dec2Hex(Data(i), 4)
+    Next
+    strCmd = "H" & RecstrDt & vbCr
+    i = 0
+    Do
+        If WS.Cells(10 + i, 9).Value = "" Then
+            WS.Cells(10 + i, 10).Value = strCmd
+            Exit Do
+        End If
+        i = i + 1
+     Loop
+     Application.ScreenUpdating = True
+     Module2.Eventflg = False
+     Set WS = Nothing
+End Sub
+Sub スクリプト実行_Click()
+    Dim WS As Worksheet
+    Dim i As Long
+    Dim RecstrDt As String
+    Dim strCmd As String
+    Dim strRev As String
+    Dim lngRet As Long
+    
+    
+    If Module2.Eventflg = True Then
+        Exit Sub
+    Else
+        Module2.Eventflg = True
+    End If
+    Application.ScreenUpdating = False
+    Set WS = ActiveSheet
+    
+    i = 0
+    Do
+        If WS.Cells(10 + i, 9).Value = "" Then Exit Do
+        Select Case WS.Cells(10 + i, 9).Value
+            Case "WR"
+                strCmd = WS.Cells(10 + i, 10).Value & vbCr
+                lngRet = wrkRsComm(fileHandle, strCmd, strRev)
+                WS.Cells(7, 1).Value = strRev
+                If InStr(strRev, "->") <= 0 Then
+                    MsgBox ("更新に失敗しました")
+                    Application.ScreenUpdating = True
+                End If
+            Case "SLEEP"
+                Sleep (WS.Cells(10 + i, 10).Value)
+            Case "MSG"
+                MsgBox (WS.Cells(10 + i, 10).Value)
+        End Select
+            
+        i = i + 1
+     Loop
+       
+        Application.ScreenUpdating = True
+        Module2.Eventflg = False
+        Set WS = Nothing
+
+End Sub
+Sub ワンショットClick()
+  Dim WS As Worksheet
+  Dim Y As Long
+  Dim X As Long
+  Dim PinNo, Mode As Byte
+  Dim St As Long
+  Dim lngRet As Long
+  Dim strCmd As String
+  Dim strRev As String
+  Dim Stimer As Single
+ 
+  If Module2.Eventflg = True Then
+        Exit Sub
+  Else
+        Module2.Eventflg = True
+  End If
+  Set WS = ActiveSheet
+  With WS.OptionButtons(1)
+        If .Value = xlOn Then
+            Mode = True
+        Else
+            Mode = False
+        End If
+  End With
+  If WS.Cells(5, 2).Value <> "連接中" Then
+     MsgBox ("連接されていません"), Buttons:=vbCritical
+     Module2.Eventflg = False
+     Exit Sub
+  Else
+    WS.Cells(5, 2).Value = "出力切替中"
+  End If
+  
+  Application.ScreenUpdating = False '画面描画を停止
+  'Application.EnableEvents = False 'イベントを抑止
+  With WS.Shapes(Application.Caller).TopLeftCell
+    Y = .Row
+    X = .Column
+  End With
+  PinNo = WS.Cells(Y, X + 1).Value
+  Mode = WS.Cells(Y, X + 2).Value
+  St = WS.Cells(Y, X + 3).Value
+  fileHandle = WS.Cells(4, 2).Value
+  If PinNo <= 0 Or Mode <= 0 Or St <= 0 Or Mode > 4 Then
+    Application.ScreenUpdating = True '画面描画を停止
+    MsgBox ("未設定及び範囲外の項目があります"), Buttons:=vbCritical
+    Set WS = Nothing
+    Exit Sub
+  End If
+  strCmd = "1SHOT" & CStr(Mode) & "=" & CStr(PinNo) & "," & CStr(St) & vbCr
+  lngRet = wrkRsComm(fileHandle, strCmd, strRev)
+  If InStr(strRev, "->") > 0 Then
+    WS.Cells(7, 1).Value = strRev
+    Application.ScreenUpdating = True
+    Else
+    WS.Cells(5, 2).Value = "連接失敗"
+    MsgBox ("1ショット信号出力中に異常が発生しました。"), Buttons:=vbCritical
+  End If
+    WS.Cells(5, 2).Value = "連接中"
+    MsgBox ("1ショット信号出力完了")
+    Module2.Eventflg = False
+    Set WS = Nothing
+End Sub
+
