@@ -1,0 +1,56 @@
+Option Explicit
+
+Private Sub CommandButton1_Click()
+    
+    Dim deviceName As String
+    Dim ComStr As Variant
+    Dim ComPortNo As Byte
+    Dim Comname As Variant
+    Dim Recstr As String
+    Dim cnt As Long
+    Dim strCmd As String
+    Dim strRev As String
+    Dim Rt As Long
+    Dim lngRet As Long
+    Dim i As Long
+    
+    If IsNull(Me.ListBox1.Text) Or Me.ListBox1.Text = "" Then
+        MsgBox ("選択されていません")
+        Exit Sub
+    End If
+    Comname = Me.ListBox1.Text
+    'Debug.Print Comname
+    deviceName = Left(Comname, InStrRev(Comname, "(COM") - 1)
+    ComPortNo = Val(Mid(Comname, InStrRev(Comname, "COM") + 3, InStrRev(Comname, ")") - InStrRev(Comname, "COM") - 3))
+    ActiveSheet.Cells(2, 2).Value = deviceName
+    ActiveSheet.Cells(3, 2).Value = "COM" & CStr(ComPortNo)
+    Module2.EventflgNo = Module2.EventflgNo + 1
+    Unload UserForm1
+  
+End Sub
+
+Private Sub UserForm_Initialize()
+    Dim Serial        As Object
+    Dim SerialSet     As Object
+    Dim objWMIService As Object
+    Dim strComputer   As String
+    Dim intCnt        As Integer    '要素数
+    
+    strComputer = "."
+    'WMIを呼び出す
+    Set objWMIService = GetObject("winmgmts:\\" & strComputer & "\root\cimv2")
+
+    'PnPで登録されているもの（デバイスマネージャで見えるもの）から
+    'シリアルポートのクラスでかつ名前に「(COMxx)」と付いているものを抽出
+    Set SerialSet = objWMIService.ExecQuery("Select * from Win32_PNPEntity Where " & _
+                    "(ClassGuid = '{4D36E978-E325-11CE-BFC1-08002BE10318}') and " & _
+                    "(Name like '%(COM%)')")
+
+    '全ポートの数(取得できた項目数)
+    intCnt = SerialSet.Count
+
+    For Each Serial In SerialSet
+        Me.ListBox1.AddItem Serial.Name
+    Next
+End Sub
+
