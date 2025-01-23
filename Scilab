@@ -1,0 +1,261 @@
+//*********
+//test1
+//*********
+clf();
+sample_rate=1000; 
+t = 0:1/sample_rate:1; 
+f=10;
+s=sin(2*%pi*f*t);
+plot(s);
+
+//*********
+//test2
+//*********
+clf();
+sample_rate=300; 
+t = 0:1/sample_rate:1; 
+f=200;
+s=sin(2*%pi*f*t);
+FFT =abs(fft(s));
+
+N=size(t,'c');
+x=sample_rate*(0:(N-1))/N;
+
+subplot(2,1,1);
+plot(s);
+xtitle('振幅波形','[ms]','');
+subplot(2,1,2);
+plot(x,FFT(1:size(x,'c')));
+xtitle('FFT分析','[Hz]','');
+
+//*********
+//test3
+//*********
+clf();
+sample_rate=1000; 
+t = 0:1/sample_rate:1; 
+f=200;
+s=sin(2*%pi*f*t);
+FFT =abs(fft(s));
+
+N=size(t,'c');
+x=sample_rate*(0:(N-1))/N;
+
+subplot(2,1,1);
+plot(s);
+xtitle('振幅波形','[ms]','');
+subplot(2,1,2);
+plot(x,FFT(1:size(x,'c')));
+xtitle('FFT分析','[Hz]','');
+
+//*********
+//test4
+//*********
+clf();
+sample_rate=1000; 
+t = 0:1/sample_rate:1; 
+f=200;
+s=sin(2*%pi*f*t);
+FFT =abs(fft(s));
+
+N=size(t,'c');
+x=sample_rate*(0:N/2)/N;
+
+subplot(2,1,1);
+plot(s);
+xtitle('振幅波形','[ms]','');
+subplot(2,1,2);
+plot(x,FFT(1:size(x,'c')));
+xtitle('FFT分析','[Hz]','');
+
+//*********
+//test5
+//*********
+clf();
+sample_rate=1000; 
+t = 0:1/sample_rate:1; 
+f=10;
+s=sin(2*%pi*f*t);
+FFT =abs(fft(s));
+
+N=size(t,'c');
+x=sample_rate*(0:100)/N;
+
+subplot(2,1,1);
+plot(s);
+xtitle('振幅波形','[ms]','');
+subplot(2,1,2);
+plot(x,FFT(1:size(x,'c')));
+xtitle('FFT分析','[Hz]','');
+
+//*********
+//test6
+//*********
+clf();
+sample_rate=1000; 
+t = 0.007:1/sample_rate:0.977; 
+f=10;
+s=sin(2*%pi*f*t);
+FFT =abs(fft(s));
+
+N=size(t,'c');
+x=sample_rate*(0:100)/N;
+
+subplot(2,1,1);
+plot(s);
+xtitle('振幅波形','[ms]','');
+subplot(2,1,2);
+plot(x,FFT(1:size(x,'c')));
+xtitle('FFT分析','[Hz]','');
+
+
+//*********
+//test7
+//*********
+clf();
+sample_rate=1000; 
+t = 0.007:1/sample_rate:0.977; 
+f=10;
+s=sin(2*%pi*f*t);
+
+win = window('hn',N);
+//式：swin=(sin(2*%pi*f*t)).*(0.5-0.5*cos(2*%pi*(t/max(t))));
+swin=s.*win;
+FFT = abs(fft(swin));
+
+N=size(t,'c');
+x=sample_rate*(0:100)/N;
+
+subplot(4,1,1);
+plot(s);
+subplot(4,1,2);
+plot(win);
+subplot(4,1,3);
+plot(swin);
+
+xtitle('振幅波形','[ms]','');
+subplot(4,1,4);
+plot(x,FFT(1:size(x,'c')));
+xtitle('FFT分析','[Hz]','');
+
+
+//*********
+//test8
+//*********
+clf();
+sample_rate=44100; 
+t = 0:1/sample_rate:(1/sample_rate)*4096; 
+N=size(t,'c');
+f=10.76*99;
+s=sin(2*%pi*f*t);
+win = window('hn',N);
+swin=s.*win;
+
+FFT = abs(fft(s.*win));
+x=sample_rate*(0:200)/N;
+subplot(2,1,1);
+subplot(1,1,1);
+plot(20.*log10(FFT(1:size(x,'c'))),'r');
+xtitle('FFT分析','[Hz]','');
+max(20.*log10(FFT(1:size(x,'c'))))
+
+//----------------------------
+f=10.76*100;
+s=sin(2*%pi*f*t);
+
+FFT = abs(fft(s.*win));
+x=sample_rate*(0:200)/N;
+subplot(1,1,1);
+plot(20.*log10(FFT(1:size(x,'c'))),'b');
+xtitle('FFT分析','[Hz]','');
+max(20.*log10(FFT(1:size(x,'c'))))
+//-----------------------
+f=10.76*101.5;
+s=sin(2*%pi*f*t);
+
+FFT = abs(fft(s.*win));
+x=sample_rate*(0:200)/N;
+subplot(1,1,1);
+
+plot(20.*log10(FFT(1:size(x,'c'))),'k');
+xtitle('FFT分析','[Hz]','');
+max(20.*log10(FFT(1:size(x,'c'))))
+
+
+//*********
+//test9
+//*********
+clf();
+sample_rate=44100; 
+t = 0:1/sample_rate:(1/sample_rate)*4096; 
+N=size(t,'c');
+f=10.76*99;
+s=sin(2*%pi*f*t);
+win = window('hn',N);
+swin=s.*win;
+
+FFT = abs(fft(s.*win));
+x=sample_rate*(0:200)/N;
+subplot(1,1,1);
+plot(20.*log10(FFT(1:size(x,'c'))),'r');
+xtitle('FFT分析','[Hz]','');
+max(20.*log10(FFT(1:size(x,'c'))))
+
+//----------------------------
+f=10.76*100;
+s=sin(2*%pi*f*t);
+
+FFT = abs(fft(s.*win));
+x=sample_rate*(0:200)/N;
+subplot(1,1,1);
+plot(20.*log10(FFT(1:size(x,'c'))),'b');
+xtitle('FFT分析','[Hz]','');
+max(20.*log10(FFT(1:size(x,'c'))))
+//-----------------------
+f=10.76*101.5;
+s=sin(2*%pi*f*t);
+
+FFT = abs(fft(s.*win));
+x=sample_rate*(0:200)/N;
+subplot(1,1,1);
+
+plot(20.*log10(FFT(1:size(x,'c')))+1.3,'k');
+xtitle('FFT分析','[Hz]','');
+max(20.*log10(FFT(1:size(x,'c'))))
+
+//*********
+//test10
+//*********
+clf()
+N=64;
+w=window('re',N);
+subplot(321);plot2d(1:N,w,style=color('blue'))
+set(gca(),'grid',[1 1]*color('gray'))
+xtitle('矩形窓　時間窓');
+subplot(322)
+n=256;[W,fr]=frmag(w,n);
+plot2d(fr,20*log10(W),style=color('blue'))
+set(gca(),'grid',[1 1]*color('gray'))
+xtitle('矩形窓　周波数特性');
+
+w=window('hn',N);
+subplot(323);plot2d(1:N,w,style=color('blue'))
+set(gca(),'grid',[1 1]*color('gray'))
+xtitle('ハン窓　時間窓');
+subplot(324)
+n=256;[W,fr]=frmag(w,n);
+plot2d(fr,20*log10(W),style=color('blue'))
+set(gca(),'grid',[1 1]*color('gray'))
+xtitle('ハン窓　周波数特性');
+
+w=window('hm',N);
+subplot(325);plot2d(1:N,w,style=color('blue'))
+set(gca(),'grid',[1 1]*color('gray'))
+xtitle('ハミング窓　時間窓');
+subplot(326)
+n=256;[W,fr]=frmag(w,n);
+plot2d(fr,20*log10(W),style=color('blue'))
+set(gca(),'grid',[1 1]*color('gray'))
+xtitle('ハミング窓　周波数特性');
+
+
